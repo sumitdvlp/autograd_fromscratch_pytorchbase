@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+import torch
+
 def mse(y,y_pred):
   '''    
   squred_diff = (input_tensor - target_tensor) ** 2

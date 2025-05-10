@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import Engine
-
+import base 
+import loss
 
 
 # a = torch.tensor([[1,2],[5,6]],dtype=float,requires_grad=True) # 2x2
@@ -16,14 +16,16 @@ y_pred = torch.rand(4555,1,dtype=float)
 # d = torch.mm(a,b)
 # d = torch.add(d,c)
 
-a_Engine = Engine(a_torch) # 2x2
-b_Engine = Engine(b_torch) # 2 x 1
-c_Engine = Engine(c_torch)
-y_Engine = Engine(y_pred)
-d_Engine = a_Engine.matmul(b_Engine)
+a_Engine = base.Engine(data = a_torch) # 2x2
+b_Engine = base.Engine(data = b_torch) # 2 x 1
+c_Engine = base.Engine(data = c_torch)
+y_Engine = base.Engine(data = y_pred)
+
+
+d_Engine = a_Engine.__matmul__(b_Engine)
 e_Engine = d_Engine.__add__(c_Engine) # 3 x 2 * 2 x 3 > 3 x 3
 f_Engine = e_Engine.relu()
-loss_Engine = mse(y_Engine, f_Engine)
+loss_Engine = loss.mse(y_Engine, f_Engine)
 # f = e - y
 
 # print('b shape',b_Engine.data.shape)
@@ -57,7 +59,7 @@ y_pred.requires_grad = True
 d_torch = torch.mm(a_torch,b_torch)
 e_torch = torch.add(d_torch, c_torch) # 3 x 2 * 2 x 3 > 3 x 3
 f_torch = F.relu(e_torch)
-loss = mse_pytorch(y_pred,f_torch)
+loss = loss.mse_pytorch(y_pred,f_torch)
 # f = relu_layer(e)
 # print('b shape',b_torch.data.shape)
 # print('b_torch.data  ',b_torch.data)
