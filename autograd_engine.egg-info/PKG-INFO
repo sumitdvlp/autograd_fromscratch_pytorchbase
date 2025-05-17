@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: autograd_engine
+Version: 0.0.14
+Summary: Autograd engine build from scratch using pytorch tensor as data holder.
+Home-page: https://github.com/sumitdvlp/autograd_fromscratch_pytorchbase
+Author: Sumit Kumar
+Author-email: sumitdvlp@gmail.com
+Maintainer: Sumit Kumar
+License: MIT
+Keywords: autograd deep-learning machine-learning ai pytorch python
+Requires-Python: >=3.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: torch
+Requires-Dist: autograd_engine
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# autograd_fromscratch_pytorchbase
+- Autograd engine build from scratch using pytorch tensor as data holder (require_grad not used instead backpropogation is manually calculated.)
+- Its unit tested framework to understand how backpropgation works internally in simplar ways.
+- The core [Engine] (https://github.com/sumitdvlp/autograd_fromscratch_pytorchbase/blob/141ff1c723c08a7c69e1c5b2792c7da411003c24/grad_engine/core/base.py#L4) 

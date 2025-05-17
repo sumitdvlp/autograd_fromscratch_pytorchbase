@@ -1,0 +1,17 @@
+LICENSE
+README.md
+setup.py
+autograd_engine/__init__.py
+autograd_engine/core.py
+autograd_engine/utils.py
+autograd_engine.egg-info/PKG-INFO
+autograd_engine.egg-info/SOURCES.txt
+autograd_engine.egg-info/dependency_links.txt
+autograd_engine.egg-info/requires.txt
+autograd_engine.egg-info/top_level.txt
+grad_engine_basic/__init__.py
+grad_engine_basic/base.py
+grad_engine_basic/engine_test_basic.py
+grad_engine_basic/loss.py
+test/test_grad_engine_basic.py
+test/test_operations.py
