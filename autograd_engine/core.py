@@ -70,8 +70,38 @@ class Tensor:
         op = Sum()
         return op.forward(self, dim, keepdims=keepdims)
 
-    
+    def __mul__(self, other):
+        """ New = self * other """
+        op = Mul()
+        return op.forward(self, tensor(other))
 
+    
+    def __truediv__(self, other):
+        """ New = self / other """
+        op = Div()
+        return op.forward(self, tensor(other))
+
+    
+    def __sub__(self, other):
+        """ New = self - other """
+        return self + -other
+
+    def __rsub__(self, other):
+        """ New = other - self """
+        return other + -self
+
+    def __isub__(self, other):
+        """ self -= other """
+        return self + -other
+
+    def __neg__(self):
+        """ self = -self """
+        op = Neg()
+        return op.forward(self) 
+    
+    def __pow__(self, other):
+        op = Pow()
+        return op.forward(self, tensor(other))    
 
 
 # Helper functions
@@ -80,15 +110,9 @@ def tensor(data):
         return data
     else: 
         return Tensor(data)
-    
 
 
-
-
-
-
-
-
+# Core Implementations
 
 class Add:
     def forward(self, a, b):
@@ -116,6 +140,7 @@ class Add:
             da = dz
 
             # Rescale gradient to have the same shape as "a":
+            '''
             grad_dim = len(dz.shape)
             in_dim = len(a.shape)
             for _ in range(grad_dim - in_dim):
@@ -124,6 +149,7 @@ class Add:
             for n, dim in enumerate(a.shape):
                 if dim == 1:
                     da = da.sum(axis=n, keepdims=True)
+            '''
             a.backward(da, z)
 
         # Find gradients relative to "b", and pass it downstream:
@@ -131,6 +157,7 @@ class Add:
             db = dz
 
             # Rescale gradient to have the same shape as "b":
+            '''
             grad_dim = len(dz.shape)
             in_dim = len(b.shape)
             for _ in range(grad_dim - in_dim):
@@ -139,6 +166,7 @@ class Add:
             for n, dim in enumerate(b.shape):
                 if dim == 1:
                     db = db.sum(axis=n, keepdims=True)
+            '''
             b.backward(db, z)
 
 class Sum():
@@ -162,3 +190,117 @@ class Sum():
         if a.requires_grad:
             da = torch.ones_like(a._data) * dz
             a.backward(da, z)
+
+class Mul:
+    def forward(self, a, b):
+        requires_grad = a.requires_grad or b.requires_grad
+
+        #  Get new Tensors data
+        data = a._data * b._data
+        z = Tensor(data, requires_grad=requires_grad, operation=self, op='*')
+
+        self.parents = (a,b)
+        a.children.append(z)
+        b.children.append(z)
+        self.cache = (a,b)
+
+        return z
+
+    def backward(self, dz, z):
+        a, b = self.cache
+
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            da = dz * b._data
+        
+            a.backward(da, z)
+        
+        if b.requires_grad:
+            db = dz * a._data
+            b.backward(db, z)
+        
+class Neg:
+
+    def forward(self, a):
+        requires_grad = a.requires_grad
+   
+        # Get new Tensor's data:
+        data = -a._data 
+   
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='-') 
+   
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+
+        self.cache = a
+
+        return z 
+    
+    def backward(self, dz, z):
+        a = self.cache
+
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            da = -dz
+            a.backward(da, z)
+
+class Div:
+
+    def forward(self, a, b):
+        requires_grad = a.requires_grad or b.requires_grad
+       
+        # Get new Tensor's data:
+        data = a._data / b._data
+       
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='/') 
+       
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a, b)
+        a.children.append(z)
+        b.children.append(z)
+        self.cache = (a, b)
+
+        return z 
+    
+    def backward(self, dz, z):
+        a, b = self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # d/da(a/b) = (1/b), apply chain rule:
+            da = dz * (1 / b._data)
+            a.backward(da, z)
+
+        # Find gradients relative to "b", and pass it downstream:
+        if b.requires_grad:
+            # d/db(a/b) = -(a/b^2), apply chain rule:
+            db = - dz * a._data / (b._data ** 2)
+
+            b.backward(db, z)
+
+class Pow():
+    def forward(self, tensor_a, tensor_b):
+        requires_grad = tensor_a.requires_grad
+        data = tensor_a._data ** tensor_b._data
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='^')
+        tensor_a.children.append(z)
+        self.cache = (tensor_a, tensor_b)
+        return z
+    
+    def backward(self, dz, z):
+        tensor_a, tensor_b = self.cache
+        if tensor_a.requires_grad:
+            da = dz * (tensor_b._data * tensor_a._data ** (tensor_b._data-1))
+            '''
+            grad_dim = len(da.shape)
+            in_dim = len(tensor_a.shape)
+            for _ in range(grad_dim - in_dim):
+                da = da.sum(axis=0)
+            for n, dim in enumerate(tensor_a.shape):
+                if dim == 1:
+                    da = da.sum(axis=n, keepdims=True)
+            '''
+            tensor_a.backward(da, z)
