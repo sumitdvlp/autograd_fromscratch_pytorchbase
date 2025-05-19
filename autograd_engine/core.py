@@ -129,6 +129,16 @@ class Tensor:
         op = Mean()
         return op.forward(self, dim, keepdims=keepdims)
 
+    def max(self, dim=None, keepdims=False):
+        """
+        Returns the largest values across the "dim" dimention.
+        Example: (B, T, D), dim = 1 -> (B, D).
+        
+        @param dim (int): dimention to be reduced (only largest remains).
+        @param keepdims (bool): wether to broadcast result to same shape as input.
+        """
+        op = Max()
+        return op.forward(self, dim, keepdims=keepdims)
 
 # Helper functions
 def tensor(data):
@@ -497,4 +507,42 @@ class Mean:
             # Propagate through the mean(x) operation:
             da = torch.ones(a.shape) * dz
             da /= torch.prod(torch.tensor(a.shape)[dim])
+            a.backward(da, z)
+
+
+class Max:
+
+    def forward(self, a, dim, keepdims=False):
+        requires_grad = a.requires_grad
+      
+        # Get new Tensor's data:
+        data = torch.max(a._data, axis=dim, keepdims=keepdims)
+        if keepdims:
+            data = torch.ones(a.shape) * data
+
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+     
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, data, dim)
+
+        return z
+    
+    def backward(self, dz, z):
+        a, data, dim =  self.cache
+
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            max = data
+            if a.shape != dz.shape: 
+                # Brodcast upstream derivative to the size of "a":
+                dz = torch.expand_dims(dz, axis=dim)
+                dz = dz * torch.ones_like(a._data)
+                # Brodcast upstream output (max) to the size of "a":
+                max = torch.expand_dims(data, axis=dim)
+                max = max * torch.ones_like(a._data)
+            # Add upstream gradients to the [max] values:
+            da = dz * torch.equal(a._data, max)
             a.backward(da, z)
