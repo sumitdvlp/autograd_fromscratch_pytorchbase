@@ -3,7 +3,7 @@ import torch
 # Tensor class, with __init__, backward, magic methods, and utils:
 class Tensor:
     ''' Tensor class, with __init__, backward, magic methods, and utils '''
-    def __init__(self, data, requires_grad = False, operation = None,op="") -> None:
+    def __init__(self, data, requires_grad = False, operation = None,op = None) -> None:
         '''
         Creates new instance of the Tensor class.
 
@@ -17,7 +17,7 @@ class Tensor:
         self.operation = operation
         self.children = []
         self.shape = self._data.shape
-        self.op = ""
+        self.op = op
         if self.requires_grad:
             self.grad = torch.zeros_like(self._data)
     
@@ -102,6 +102,32 @@ class Tensor:
     def __pow__(self, other):
         op = Pow()
         return op.forward(self, tensor(other))    
+
+    def __matmul__(self, other):
+        """ New = self @ other """
+        op = MatMul()
+        return op.forward(self, tensor(other))
+
+    def transpose(self, *dims):
+        """
+        Returns the original tensor with the two given dimentions transposed.
+        Example: (16, 8, 4), *dims=(-2,-1) -> (16, 4, 8)
+
+        @param *dims (integers): two dimentions to be transposed.
+        """
+        op = Transpose()
+        return op.forward(self, *dims)
+
+    def mean(self, dim=None, keepdims=False):
+        """
+        Returns the mean of all values across the "dim" dimention.
+        Example: (B, T, D), dim = 1 -> (B, D).
+
+        @param dim (int): dimention to be averaged across.
+        @param keepdims (bool): wether to broadcast result to same shape as input.
+        """
+        op = Mean()
+        return op.forward(self, dim, keepdims=keepdims)
 
 
 # Helper functions
@@ -304,3 +330,171 @@ class Pow():
                     da = da.sum(axis=n, keepdims=True)
             '''
             tensor_a.backward(da, z)
+
+class MatMul:
+
+    def forward(self, a, b):
+        requires_grad = a.requires_grad or b.requires_grad
+     
+        # Get new Tensor's data:
+        data = a._data @ b._data
+      
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='@') 
+      
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a, b)
+        a.children.append(z)
+        b.children.append(z)
+        self.cache = (a, b)
+
+        return z  
+
+    def backward(self, dz, z):
+        a, b = self.cache
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            da = dz @ b._data.swapaxes(-1,-2)
+            a.backward(da, z)
+        
+        if b.requires_grad:
+            db = a._data.swapaxes(-1,-2) @ dz
+            b.backward(db, z)
+
+class Transpose:
+
+    def forward(self, a, *dims):
+        requires_grad = a.requires_grad
+       
+        # Get new Tensor's data:
+        data = a._data.swapaxes(*dims)
+       
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='.T')
+       
+        # Add new Tensors to "children" and old Tensors to "parents": 
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, dims)
+
+        return z
+    
+    def backward(self, dz, z):
+        a, dims = self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # Transpose upstream gradients:
+            da = dz.swapaxes(*dims)
+ 
+            a.backward(da, z)
+
+
+class Exp:
+
+    def forward(self, a):
+        requires_grad = a.requires_grad
+       
+        # Get new Tensor's data:
+        data = torch.exp(a._data)
+       
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='exp') 
+      
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, data)
+
+        return z
+    
+    def backward(self, dz, z):
+        a, data = self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # d/da(e^a) = e^a, apply the chain rule to the derivative of e^a:
+            da = data * dz
+            a.backward(da, z)
+
+class Log:
+
+    def forward(self, a):
+        requires_grad = a.requires_grad
+     
+        # Get new Tensor's data:
+        data = torch.log(a._data)
+     
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op=f'log{a}') 
+      
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a)
+
+        return z
+    
+    def backward(self, dz, z):
+        a = self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # d/da(ln(a)) = (1/a), apply the chain rule to the derivative of the natural log:
+            da = (1 / a._data) * dz
+            a.backward(da, z)
+
+class Sqrt:
+
+    def forward(self, a):
+        requires_grad = a.requires_grad
+     
+        # Get new Tensor's data:
+        data = torch.sqrt(a._data)
+     
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op=f'sqrt w.r.t {a}') 
+     
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, data)
+
+        return z
+    
+    def backward(self, dz, z):
+        a, data = self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # d/dx(sqrt(a)) = (1/2) * (1/sqrt(a)), apply the chain rule to the derivative of the square root:
+            da = (1 / 2) * (1 / data) * dz
+            a.backward(da, z)
+
+class Mean:
+
+    def forward(self, a, dim, keepdims):
+        requires_grad = a.requires_grad
+    
+        # Get new Tensor's data:
+        data = a._data.mean(axis=dim, keepdims=keepdims)
+      
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+       
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, dim)
+
+        return z
+    
+    def backward(self, dz, z):
+        a, dim =  self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # Propagate through the mean(x) operation:
+            da = torch.ones(a.shape) * dz
+            da /= torch.prod(torch.tensor(a.shape)[dim])
+            a.backward(da, z)
