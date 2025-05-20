@@ -509,6 +509,34 @@ class Mean:
             da /= torch.prod(torch.tensor(a.shape)[dim])
             a.backward(da, z)
 
+# Tensor Operations:
+class Reshape:
+
+    def forward(self, a, shape):
+        requires_grad = a.requires_grad
+      
+        # Get new Tensor's data:
+        data = a._data.reshape(*shape)
+      
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self)
+      
+        # Add new Tensors to "children" and old Tensors to "parents": 
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a)
+
+        return z
+    
+    def backward(self, dz, z):
+        a = self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # Reshape upstream gradients:
+            da = dz.reshape(a.shape)
+ 
+            a.backward(da, z)
 
 class Max:
 
@@ -545,4 +573,161 @@ class Max:
                 max = max * torch.ones_like(a._data)
             # Add upstream gradients to the [max] values:
             da = dz * torch.equal(a._data, max)
+            a.backward(da, z)
+
+class MaskedFill:
+
+    def forward(self, a, condition, value):
+        requires_grad = a.requires_grad
+      
+        # Get new Tensor's data:
+        data = torch.where(condition, a._data, value)
+      
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+      
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, condition)
+
+        return z 
+    
+    def backward(self, dz, z):
+        a, condition = self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # Because some activations are just set to a value, this operation is not differentiable.
+            da = torch.where(condition, dz, 0)
+ 
+            a.backward(da, z)
+
+class Slice:
+
+    def forward(self, a, index):
+        requires_grad = a.requires_grad
+      
+        # Get new Tensor's data:
+        data = a._data[index]
+       
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+       
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, index)
+
+        return z
+    
+    def backward(self, dz, z):
+        a, index =  self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # Add upstream gradients to [index] part of da.
+            da = torch.zeros_like(a._data)
+            da[index] = dz
+            a.backward(da, z)
+
+class Stack:
+    
+    def forward(self, tensors: tuple, dim: int):
+
+        # Verify if any original tensors requires grad:
+        requires_grad = False
+        for tensor in tensors:
+            if tensor.requires_grad == True:
+                requires_grad = True
+       
+        # Get new Tensor's data:
+        data = torch.stack([tensor._data for tensor in tensors], axis=dim)
+       
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+       
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = tensors
+        for tensor in tensors:
+            tensor.children.append(z)
+        self.cache = (tensors, dim)
+
+        return z
+    
+    def backward(self, dz, z):
+        tensors, dim = self.cache
+
+        dz = torch.split(dz, len(tensors), dim)
+
+        # Find gradients relative to each tensor in "tensor", and pass it downstream:
+        for i, tensor in enumerate(tensors):
+            if tensor.requires_grad:
+                # For every tensor that generated the stack, get gradients relative to that part of "dz": 
+                di = dz[i].reshape(tensor._data.shape)
+    
+                tensor.backward(di, z)
+
+class Cat:
+
+    def forward(self, tensors: tuple, dim: int):
+
+        requires_grad = False
+        for tensor in tensors:
+            if tensor.requires_grad == True:
+                requires_grad = True
+    
+        # Get new Tensor's data:
+        data = torch.concatenate([tensor._data for tensor in tensors], axis=dim)
+    
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+    
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = tensors
+        for tensor in tensors:
+            tensor.children.append(z)
+        self.cache = (tensors, dim)
+
+        return z
+    
+    def backward(self, dz, z):
+        tensors, dim = self.cache
+        
+        dz = torch.split(dz, len(tensors), dim)
+
+        # Find gradients relative to each tensor in "tensor", and pass it downstream:
+        for i, tensor in enumerate(tensors):
+            if tensor.requires_grad:
+                # For every tensor that generated the output, get gradients relative to that part of "dz": 
+                di = dz[i]
+    
+                tensor.backward(di, z)
+
+class Transpose:
+
+    def forward(self, a, *dims):
+        requires_grad = a.requires_grad
+       
+        # Get new Tensor's data:
+        data = a._data.swapaxes(*dims)
+       
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self)
+       
+        # Add new Tensors to "children" and old Tensors to "parents": 
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, dims)
+
+        return z
+    
+    def backward(self, dz, z):
+        a, dims = self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # Transpose upstream gradients:
+            da = dz.swapaxes(*dims)
+ 
             a.backward(da, z)

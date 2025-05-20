@@ -12,6 +12,7 @@ Requires-Python: >=3.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch
+Requires-Dist: pytest
 Requires-Dist: autograd_engine
 Dynamic: author
 Dynamic: author-email
