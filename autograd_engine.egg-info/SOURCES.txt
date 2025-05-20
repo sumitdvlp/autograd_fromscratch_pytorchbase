@@ -9,6 +9,8 @@ autograd_engine.egg-info/SOURCES.txt
 autograd_engine.egg-info/dependency_links.txt
 autograd_engine.egg-info/requires.txt
 autograd_engine.egg-info/top_level.txt
+autograd_engine/nn_modules/__init__.py
+autograd_engine/nn_modules/layers.py
 grad_engine_basic/__init__.py
 grad_engine_basic/base.py
 grad_engine_basic/engine_test_basic.py

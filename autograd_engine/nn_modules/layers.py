@@ -84,3 +84,5 @@ class Softmax(Module):
         z = exp(z)
         out = z / sum(z, dim=dim, keepdims=True)
         return out
+    
+    
