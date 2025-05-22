@@ -1,7 +1,8 @@
 from autograd_engine import utils as engine
 import torch
 import unittest
-
+from autograd_engine.nn_modules import layers
+import torch.nn as nn
 
 class TestCoreOperations(unittest.TestCase):
     def test_add(self):
@@ -64,7 +65,7 @@ class TestCoreOperations(unittest.TestCase):
         bct.retain_grad()
         bct.backward()
 
-        assert torch.equal(ct,c._data),"multiplication didn't worked"
+        assert torch.equal(bct,bc._data),"multiplication didn't worked"
 
         assert torch.equal(c.grad, ct.grad), "multiplication backward pass didn't worked"
         assert torch.equal(e.grad, et.grad), "multiplication backward pass didn't worked"
@@ -102,7 +103,7 @@ class TestCoreOperations(unittest.TestCase):
         bct.backward()
 
         #forward pass check
-        assert torch.equal(ct,c._data),"subtraction didn't worked"
+        assert torch.equal(bct,bc._data),"subtraction didn't worked"
         # backward pass check
         assert torch.equal(c.grad, ct.grad), "subtraction backward pass didn't worked"
         assert torch.equal(e.grad, et.grad), "subtraction backward pass didn't worked"
@@ -141,7 +142,7 @@ class TestCoreOperations(unittest.TestCase):
 
 
         #forward pass check
-        assert torch.equal(ct,c._data),"division forward didn't worked"
+        assert torch.equal(bct,bc._data),"division forward didn't worked"
         # backward pass check
         assert torch.equal(c.grad, ct.grad), "division backward pass didn't worked"
         assert torch.equal(e.grad, et.grad), "division backward pass didn't worked"
@@ -180,7 +181,7 @@ class TestCoreOperations(unittest.TestCase):
 
 
         #forward pass check
-        assert torch.equal(ct,c._data),"pow forward didn't worked"
+        assert torch.equal(bct,bc._data),"pow forward didn't worked"
         # backward pass check
         assert torch.equal(c.grad, ct.grad), "pow backward pass didn't worked"
         assert torch.equal(e.grad, et.grad), "pow backward pass didn't worked"
@@ -220,7 +221,7 @@ class TestCoreOperations(unittest.TestCase):
 
 
         #forward pass check
-        assert torch.equal(ct,c._data),"pow forward didn't worked"
+        assert torch.equal(bct,bc._data),"pow forward didn't worked"
         # backward pass check
         assert torch.equal(c.grad, ct.grad), "pow backward pass didn't worked"
         assert torch.equal(e.grad, et.grad), "pow backward pass didn't worked"
@@ -269,7 +270,7 @@ class TestCoreOperations(unittest.TestCase):
         print('ct ',ct)
         print('c.data',c._data)
         #forward pass check
-        assert torch.equal(ct,c._data),"exp forward didn't worked"
+        assert torch.equal(bct,bc._data),"exp forward didn't worked"
         # backward pass check
         assert torch.equal(c.grad, cd.grad), "exp backward pass didn't worked"
         assert torch.equal(e.grad, et.grad), "exp backward pass didn't worked"
@@ -309,12 +310,134 @@ class TestCoreOperations(unittest.TestCase):
 
 
         #forward pass check
-        assert torch.equal(ct,c._data),"division forward didn't worked"
+        assert torch.equal(bct,bc._data),"division forward didn't worked"
         # backward pass check
         assert torch.equal(c.grad, ct.grad), "division backward pass didn't worked"
         assert torch.equal(e.grad, et.grad), "division backward pass didn't worked"
         assert torch.allclose(a.grad, at.grad), "division backward pass didn't worked"
         assert torch.allclose(b.grad, bt.grad), "division backward pass didn't worked"
+
+    def test_relu(self):
+        at = torch.rand(2,1)
+        bt = torch.rand(2,1)
+        dt = torch.rand(2, 1)
+
+        a = engine.tensor(data = at, requires_grad=True,op='a')
+        b = engine.tensor(data = bt, requires_grad=True,op='b')
+        c = a * b
+        
+        d = engine.tensor(data=dt, requires_grad=True, op='d')
+        e = layers.ReLU()(c)
+
+
+        bc = e.sum()
+        bc.backward()  
+
+        at.requires_grad = True    
+        bt.requires_grad = True
+        dt.requires_grad = True
+
+        ct = at * bt
+        relu = nn.ReLU()
+        ct.retain_grad()
+        et = relu(ct)
+        et.retain_grad()
+        # et.requires_grad = True
+        
+        bct = et.sum()
+        bct.retain_grad()
+        bct.backward()
+
+
+        #forward pass check
+        assert torch.equal(bct,bc._data),"relu forward didn't worked"
+        # backward pass check
+        assert torch.equal(c.grad, ct.grad), "relu backward pass didn't worked"
+        assert torch.equal(e.grad, et.grad), "relu backward pass didn't worked"
+        assert torch.allclose(a.grad, at.grad), "relu backward pass didn't worked"
+        assert torch.allclose(b.grad, bt.grad), "relu backward pass didn't worked"
+
+    def test_Softmax(self):
+        at = torch.rand(2,1)
+        bt = torch.rand(2,1)
+        dt = torch.rand(2, 1)
+
+        a = engine.tensor(data = at, requires_grad=True,op='a')
+        b = engine.tensor(data = bt, requires_grad=True,op='b')
+        c = a * b
+        
+        d = engine.tensor(data=dt, requires_grad=True, op='d')
+        e = layers.Softmax()(c)
+
+
+        bc = e.sum()
+        bc.backward()  
+
+        at.requires_grad = True    
+        bt.requires_grad = True
+        dt.requires_grad = True
+
+        ct = at * bt
+        Softmax = nn.Softmax()
+        ct.retain_grad()
+        et = Softmax(ct)
+        et.retain_grad()
+        # et.requires_grad = True
+        
+        bct = et.sum()
+        bct.retain_grad()
+        bct.backward()
+
+
+        #forward pass check
+        assert torch.equal(bct,bc._data),"Softmax forward didn't worked"
+        # backward pass check
+        assert torch.equal(c.grad, ct.grad), "Softmax backward pass didn't worked"
+        assert torch.equal(e.grad, et.grad), "Softmax backward pass didn't worked"
+        assert torch.allclose(a.grad, at.grad), "Softmax backward pass didn't worked"
+        assert torch.allclose(b.grad, bt.grad), "Softmax backward pass didn't worked"
+
+    def test_Tanh(self):
+        at = torch.rand(2,1)
+        bt = torch.rand(2,1)
+        dt = torch.rand(2, 1)
+
+        a = engine.tensor(data = at, requires_grad=True,op='a')
+        b = engine.tensor(data = bt, requires_grad=True,op='b')
+        c = a * b
+        
+        d = engine.tensor(data=dt, requires_grad=True, op='d')
+        e = layers.Tanh()(c)
+
+
+        bc = e.sum()
+        bc.backward()  
+
+        at.requires_grad = True    
+        bt.requires_grad = True
+        dt.requires_grad = True
+
+        ct = at * bt
+        Tanh = nn.Tanh()
+        ct.retain_grad()
+        et = Tanh(ct)
+        et.retain_grad()
+        # et.requires_grad = True
+        
+        bct = et.sum()
+        bct.retain_grad()
+        bct.backward()
+
+        print('bct',bct.data)
+        print('bc',bc._data)
+
+        #forward pass check
+        assert torch.allclose(bct,bc._data),"Softmax forward didn't worked"
+        # backward pass check
+        assert torch.allclose(c.grad, ct.grad), "Softmax backward pass didn't worked"
+        assert torch.allclose(e.grad, et.grad), "Softmax backward pass didn't worked"
+        assert torch.allclose(a.grad, at.grad), "Softmax backward pass didn't worked"
+        assert torch.allclose(b.grad, bt.grad), "Softmax backward pass didn't worked"
 
 
 seed_value=42

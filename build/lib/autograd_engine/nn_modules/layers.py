@@ -1,5 +1,5 @@
 from ..core import *
-from autograd_engine import utils as engine
+from ..utils import *
 import torch
 
 class Module:
@@ -69,6 +69,22 @@ class Linear(Module):
             z += self.b
         return z
     
+class Softmax(Module):
+    ''' Softmax non-linearity class. '''
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, x, dim=-1):
+        '''
+        @param dim (int): dimention across which to apply Softmax.
+        '''
+        return self.forward(x, dim)
+
+    def forward(self, z, dim=-1):
+        z = exp(z)
+        out = z / sum(z, dim=dim, keepdims=True)
+        return out
+    
 # Embedding Layers
 class Embedding(Module):
     ''' Embedding class, turns indexes into vectors. '''
@@ -120,7 +136,7 @@ class Dropout(Module):
     def forward(self,z):
         if self.mode == 'eval':
             return z
-        mask = engine.rand(z.shape) > self.p
+        mask = rand(z.shape) > self.p
         a = z.masked_fill(mask, 0) 
         a = a / (1 - self.p)
         return a
@@ -133,13 +149,13 @@ class LayerNorm(Module):
         @param n_embed (float): size of the last dimention of the imput.
         '''
         super().__init__()
-        self.gamma = engine.ones([1, n_embed], requires_grad=True)
-        self.beta = engine.zeros([1, n_embed], requires_grad=True)
+        self.gamma = ones([1, n_embed], requires_grad=True)
+        self.beta = zeros([1, n_embed], requires_grad=True)
     
 
     def forward(self,x):
-        var_x = engine.var(x, dim=-1, keepdims=True) # (B, T)
-        norm_x = (x - engine.mean(x, dim=-1, keepdims=True)) / engine.sqrt(var_x) # (B, T, D)
+        var_x = var(x, dim=-1, keepdims=True) # (B, T)
+        norm_x = (x - mean(x, dim=-1, keepdims=True)) / sqrt(var_x) # (B, T, D)
         z = norm_x * self.gamma + self.beta # (B, T, D)
         return z
 
@@ -167,8 +183,8 @@ class Softmax(Module):
         return self.forward(x, dim)
 
     def forward(self, z, dim=None):
-        z = engine.exp(z)
-        out = z / engine.sum(z, dim=dim, keepdims=True)
+        z = exp(z)
+        out = z / sum(z, dim=dim, keepdims=True)
         return out
 
 
@@ -178,7 +194,7 @@ class Tanh(Module):
         super().__init__()
 
     def forward(self, z):
-        z_pos = engine.exp(z)
-        z_neg = engine.exp(-z)
-        out = (z_pos - z_neg) / (z_pos + z_neg)
+        z = exp(z)
+        z_neg = exp(-z)
+        out = (z - z_neg) / (z + z_neg)
         return out
