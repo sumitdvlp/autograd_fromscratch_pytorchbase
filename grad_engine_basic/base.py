@@ -146,7 +146,7 @@ class Engine:
         if self.data.shape != self.grad.shape:
           # Brodcast upstream derivative to the size of "a":
           out.grad = torch.unsqueeze(out.grad, dim=dim)
-          out.gad = out.grad * torch.ones_like(self.data)
+          out.grad = out.grad * torch.ones_like(self.data)
           # Brodcast upstream output (max) to the size of "a":
           max_v = torch.unsqueeze(out, dim=dim)
           max_v = max_v * torch.ones_like(self.data)

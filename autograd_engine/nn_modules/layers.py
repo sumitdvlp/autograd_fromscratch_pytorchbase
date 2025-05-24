@@ -182,3 +182,76 @@ class Tanh(Module):
         z_neg = engine.exp(-z)
         out = (z_pos - z_neg) / (z_pos + z_neg)
         return out
+    
+# Loss Layer:
+class CrossEntropyLoss(Module):
+    ''' Cross Entropy Loss class, returns the loss given the output and the expected indexes. '''
+    def __init__(self):
+        super().__init__()
+
+    def __call__(self, z, y):
+        '''
+        @param z (Tensor): output from the last dimention of the network. 
+        Must have shape like (*Batch dimentions, Number of possible classes).
+        @param y (any Array): correct indexes expected from the model.
+        Must have shape like (*Batch dimentions), with each value being the
+        expected index.
+
+        @returns loss (float): negative-log-likelihood loss of the model output.
+        '''
+        return self.forward(z, y)
+
+    # def forward(self, z, y):
+    #     *B_dims, D = z.shape
+    #     B = torch.prod(B_dims)
+    #     z = z.reshape(B,D)
+        
+    #     logits = engine.exp(z)
+    #     logits = logits / sum(logits, dim= 1, keepdims=True)
+
+    #     y = array(y).reshape(B)
+            
+    #     # get cross-entropy loss:
+    #     log_losses = log(logits[np.arange(B), y])
+    #     loss = -sum(log_losses) / (B)
+    #     return loss
+    def forward(self, y_pred:Tensor, y_true:Tensor):
+        '''
+        @param y_pred (Tensor): output from the last dimention of the network. 
+        Must have shape like (*Batch dimentions, Number of possible classes).
+        @param y_true (any Array): correct indexes expected from the model.
+        Must have shape like (*Batch dimentions), with each value being the
+        expected index.
+
+        @returns loss (float): negative-log-likelihood loss of the model output.
+        '''
+        '''
+        # Get batch size
+        batch_size = y_pred._data.shape[0]
+
+        # Apply softmax
+        # exp_pred = torch.exp(y_pred.data - torch.max(y_pred.data,dim=1,keepdims=True).values)
+        max_y_pred = engine.max(y_pred,dim=1,keepdims=True)
+        sub = y_pred - max_y_pred
+        exp_val = engine.exp(sub)
+        # print('exp_val',exp_val)
+        # print('exp_val', exp_val)
+        exp_val_sum = engine.sum(exp_val,dim=1, keepdims=True)
+        # print('exp_pred ',exp_pred[1:10])
+        # print('exp_Pred', exp_pred.shape)
+        # softmax_preds = exp_pred / torch.sum(exp_pred,dim=1, keepdims=True)
+        softmax_preds = exp_val/exp_val_sum
+
+        # Get Predicit probability for the correct class
+        # print('softmax ',softmax_preds[1:10])
+        # print('softmax ',softmax_preds.shape)
+        correc_class_prds = softmax_preds[range(batch_size), y_true.data]
+
+        # Calculate negative log likelihood
+
+        loss = -correc_class_prds.log()
+
+        return loss.mean()
+        '''
+        sftmax = y_pred.exp() / (y_pred.exp().sum(-1)).unsqueeze(-1)
+        return -sftmax[range(y_true.shape[0]), y_true._data].log().mean()
