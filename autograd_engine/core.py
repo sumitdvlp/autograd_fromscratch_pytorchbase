@@ -107,6 +107,11 @@ class Tensor:
         """ New = self @ other """
         op = MatMul()
         return op.forward(self, tensor(other))
+    
+    def __getitem__(self, index): 
+        """ New = self[index] """
+        op = Slice()
+        return op.forward(self, index)
 
     def transpose(self, *dims):
         """
@@ -128,17 +133,35 @@ class Tensor:
         """
         op = Mean()
         return op.forward(self, dim, keepdims=keepdims)
-
+    
+    def exp(self):
+        """ New = e^self """
+        op = Exp()
+        return op.forward(self)
+    def log(self):
+        """ New = ln(self) """
+        op = Log()
+        return op.forward(self)
+    def sqrt(self):
+        """ New = sqrt(self) """
+        op = Sqrt()
+        return op.forward(self)
     def max(self, dim=None, keepdims=False):
-        """
-        Returns the largest values across the "dim" dimention.
-        Example: (B, T, D), dim = 1 -> (B, D).
-        
-        @param dim (int): dimention to be reduced (only largest remains).
-        @param keepdims (bool): wether to broadcast result to same shape as input.
-        """
+        """ New = max(self) """
         op = Max()
         return op.forward(self, dim, keepdims=keepdims)
+    def mean(self, dim=None, keepdims=False):
+        """ New = mean(self) """
+        op = Mean()
+        return op.forward(self, dim, keepdims=keepdims)
+    def unsqueeze(self, dim):
+        """ New = self.unsqueeze(dim) """
+        op = UnSqueeze()
+        return op.forward(self, dim)
+    def squeeze(self, dim):
+        """ New = self.squeeze(dim) """
+        op = Squeeze()
+        return op.forward(self, dim)
 
 # Helper functions
 def tensor(data):
@@ -516,12 +539,12 @@ class Max:
         requires_grad = a.requires_grad
       
         # Get new Tensor's data:
-        data = torch.max(a._data, axis=dim, keepdims=keepdims)
+        data = torch.max(a._data, dim=dim, keepdims=keepdims).values
         if keepdims:
             data = torch.ones(a.shape) * data
 
         # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='max') 
      
         # Add new Tensors to "children" and old Tensors to "parents":
         self.parents = (a,)
@@ -538,13 +561,14 @@ class Max:
             max = data
             if a.shape != dz.shape: 
                 # Brodcast upstream derivative to the size of "a":
-                dz = torch.expand_dims(dz, axis=dim)
+                dz = torch.unsqueeze(dz, dim=dim)
                 dz = dz * torch.ones_like(a._data)
                 # Brodcast upstream output (max) to the size of "a":
-                max = torch.expand_dims(data, axis=dim)
+                max = torch.unsqueeze(data, dim=dim)
                 max = max * torch.ones_like(a._data)
             # Add upstream gradients to the [max] values:
-            da = dz * torch.equal(a._data, max)
+            t = torch.eq(a._data, max)
+            da = dz * t
             a.backward(da, z)
 
 class MaskedFill:
@@ -584,7 +608,7 @@ class Slice:
         data = a._data[index]
        
         # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='getitem') 
        
         # Add new Tensors to "children" and old Tensors to "parents":
         self.parents = (a,)
@@ -702,4 +726,54 @@ class Transpose:
             # Transpose upstream gradients:
             da = dz.swapaxes(*dims)
  
+            a.backward(da, z)
+
+class UnSqueeze():
+    def forward(self, a, dim):
+        requires_grad = a.requires_grad
+      
+        # Get new Tensor's data:
+        data = a._data.unsqueeze(dim)
+      
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='unsqueeze') 
+      
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, dim)
+
+        return z 
+    
+    def backward(self, dz, z):
+        a, dim =  self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # Remove the added dimension from upstream gradients:
+            da = dz.squeeze(dim)
+            a.backward(da, z)
+class Squeeze():
+    def forward(self, a, dim):
+        requires_grad = a.requires_grad
+      
+        # Get new Tensor's data:
+        data = a._data.squeeze(dim)
+      
+        # Create new Tensor:
+        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+      
+        # Add new Tensors to "children" and old Tensors to "parents":
+        self.parents = (a,)
+        a.children.append(z)
+        self.cache = (a, dim)
+
+        return z
+    def backward(self, dz, z):
+        a, dim =  self.cache
+        
+        # Find gradients relative to "a", and pass it downstream:
+        if a.requires_grad:
+            # Add the removed dimension to upstream gradients:
+            da = dz.unsqueeze(dim)
             a.backward(da, z)

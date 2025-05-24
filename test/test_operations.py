@@ -439,6 +439,117 @@ class TestCoreOperations(unittest.TestCase):
         assert torch.allclose(a.grad, at.grad), "Softmax backward pass didn't worked"
         assert torch.allclose(b.grad, bt.grad), "Softmax backward pass didn't worked"
 
+    def test_Max(self):
+        at = torch.rand(2,1)
+        bt = torch.rand(2,1)
+        # dt = torch.rand(2, 1)
+
+        a = engine.tensor(data = at, requires_grad=True,op='a')
+        b = engine.tensor(data = bt, requires_grad=True,op='b')
+        c = a * b
+        
+        # d = engine.tensor(data=dt, requires_grad=True, op='d')
+        bc = engine.max(c, dim=0)
+        bc.backward()  
+  
+
+        at.requires_grad = True    
+        bt.requires_grad = True
+        # dt.requires_grad = True
+
+        ct = at * bt
+        
+        ct.retain_grad()
+        bct = torch.max(ct, dim=0).values
+        bct.retain_grad()
+        bct.backward()
+
+        print('bct',bct.data)
+        print('bc',bc._data)
+
+        #forward pass check
+        assert torch.allclose(bct,bc._data),"Max forward didn't worked"
+        # backward pass check
+        assert torch.allclose(c.grad, ct.grad), "Max backward pass didn't worked"
+        # assert torch.allclose(e.grad, et.grad), "Max backward pass didn't worked"
+        assert torch.allclose(a.grad, at.grad), "Max backward pass didn't worked"
+        assert torch.allclose(b.grad, bt.grad), "Max backward pass didn't worked"
+
+    def test_Slice(self):
+        batch_size, n_classes = 2, 4
+        at = torch.rand(batch_size,n_classes)
+        bt = torch.rand(batch_size,n_classes)
+        dt = torch.randint(n_classes, size=(batch_size,))
+
+        a = engine.tensor(data = at, requires_grad=True,op='a')
+        b = engine.tensor(data = bt, requires_grad=True,op='b')
+        c = a * b
+        
+        e = c[range(0,1),[0,2,1]]
+
+        bc = e.sum()
+        bc.backward()  
+
+        at.requires_grad = True    
+        bt.requires_grad = True    
+
+        ct = at * bt
+        ct.retain_grad()
+        et = ct[range(0,1),[0,2,1]]
+        et.retain_grad()
+        
+        bct = et.sum()
+        bct.retain_grad()
+        bct.backward()
+
+        #forward pass check
+        assert torch.equal(bct,bc._data),"Slice forward didn't worked"
+        # backward pass check
+        assert torch.equal(c.grad, ct.grad), "Slice backward pass didn't worked"
+        assert torch.equal(e.grad, et.grad), "Slice backward pass didn't worked"
+        assert torch.allclose(a.grad, at.grad), "Slice backward pass didn't worked"
+        assert torch.allclose(b.grad, bt.grad), "Slice backward pass didn't worked"
+
+    def test_CrossEntropyLoss(self):
+        batch_size, n_classes = 2, 4
+        at = torch.rand(batch_size,n_classes)
+        bt = torch.rand(batch_size,n_classes)
+        dt = torch.randint(n_classes, size=(batch_size,))
+
+        a = engine.tensor(data = at, requires_grad=True,op='a')
+        b = engine.tensor(data = bt, requires_grad=True,op='b')
+        c = a * b
+        
+        d = engine.tensor(data=dt, requires_grad=False, op='d')
+        e = layers.CrossEntropyLoss()(c,d)
+
+
+        bc = e.sum()
+        bc.backward()  
+
+        at.requires_grad = True    
+        bt.requires_grad = True    
+        dt.requires_grad = True
+
+        ct = at * bt
+        CrossEntropyLoss = nn.CrossEntropyLoss()
+        ct.retain_grad()
+        et = CrossEntropyLoss(ct,dt)
+        et.retain_grad()
+        # et.requires_grad = True
+        
+        bct = et.sum()
+        bct.retain_grad()
+        bct.backward()
+
+
+        #forward pass check
+        assert torch.equal(bct,bc._data),"Softmax forward didn't worked"
+        # backward pass check
+        assert torch.equal(c.grad, ct.grad), "Softmax backward pass didn't worked"
+        assert torch.equal(e.grad, et.grad), "Softmax backward pass didn't worked"
+        assert torch.allclose(a.grad, at.grad), "Softmax backward pass didn't worked"
+        assert torch.allclose(b.grad, bt.grad), "Softmax backward pass didn't worked"
 
 seed_value=42
 torch.manual_seed(seed_value)

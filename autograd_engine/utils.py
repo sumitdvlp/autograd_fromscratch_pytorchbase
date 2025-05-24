@@ -172,17 +172,6 @@ def randint_like(other: Tensor, low: int, high: int=0, requires_grad = False):
     # Methods to work with Tensors:
 
 # Statistics:
-def max(a: Tensor, dim: None, keepdims: bool=False):
-    """
-    Returns the largest values across the "dim" dimention.
-    Example: (B, T, D), dim = 1 -> (B, D).
-
-    @param a (Tensor): tensor to perform the max() operation.  
-    @param dim (int): dimention to be reduced (only largest remains).
-    @param keepdims (bool): wether to broadcast result to same shape as input.
-    """
-    return a.max(dim=dim, keepdims=keepdims)
-
 def argmax(a: Tensor, dim: None, keepdims: bool=False):
     """
     Returns the index of the largest values across the "dim" dimention.
@@ -258,3 +247,15 @@ def stack(tensors: tuple, dim: int):
     """
     op = Stack()
     return op.forward(tensors, dim)
+
+def max(self, dim=None, keepdims=False):
+    """
+        Returns the largest values across the "dim" dimention.
+        Example: (B, T, D), dim = 1 -> (B, D).
+        
+        @param dim (int): dimention to be reduced (only largest remains).
+        @param keepdims (bool): wether to broadcast result to same shape as input.
+    """
+    op = Max()
+    return op.forward(self, dim, keepdims=keepdims)
+
