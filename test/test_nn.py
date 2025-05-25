@@ -13,7 +13,7 @@ class TestNeuralForge(unittest.TestCase):
         propagation, with weights explicitly declared.
         '''
         # Define loss function as Cross Entropy Loss:
-        loss_func = layers.CrossEntropyLoss()
+        loss_func = layers.MSE()
 
         # Instantiate input and output:
         x = engine.randn((8,4,5))

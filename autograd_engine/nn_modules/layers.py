@@ -184,6 +184,20 @@ class Tanh(Module):
         return out
     
 # Loss Layer:
+class MSE(Module):
+
+  def __init__(self):
+     super().__init__()
+
+  def __call__(self, y, y_pred):
+     return self.forward(y, y_pred)
+
+  def forward(self, y:Tensor, y_pred:Tensor):
+    diff = y - y_pred
+    sq = diff ** 2
+    y_shape = y.shape if isinstance(y, Tensor) else Tensor(y).shape
+    return sq.sum()/y_shape[0]
+
 class CrossEntropyLoss(Module):
     ''' Cross Entropy Loss class, returns the loss given the output and the expected indexes. '''
     def __init__(self):

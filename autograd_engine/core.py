@@ -21,6 +21,14 @@ class Tensor:
         if self.requires_grad:
             self.grad = torch.zeros_like(self._data)
     
+    def shape(self):
+        ''' Returns the shape of the Tensor's data. '''
+        return self.shape
+    
+    def __str__(self):
+        ''' Returns a string representation of the Tensor. '''
+        return f"Tensor({self._data}, requires_grad={self.requires_grad})"
+    
     def __repr__(self):
         return f"""({self._data}, requires_grad = {self.requires_grad})"""
 
@@ -168,6 +176,8 @@ def tensor(data):
     if isinstance(data, Tensor):
         return data
     else: 
+        if not isinstance(data, torch.Tensor):
+            data = torch.tensor(data)
         return Tensor(data)
 
 
@@ -331,12 +341,33 @@ class Div:
         if a.requires_grad:
             # d/da(a/b) = (1/b), apply chain rule:
             da = dz * (1 / b._data)
+
+            # Rescale gradient to have the same shape as "a":
+            grad_dim = len(dz.shape)
+            in_dim = len(a.shape)
+            for _ in range(grad_dim - in_dim):
+                da = da.sum(axis=0)
+            
+            for n, dim in enumerate(a.shape):
+                if dim == 1:
+                    da = da.sum(axis=n, keepdims=True)
+
             a.backward(da, z)
 
         # Find gradients relative to "b", and pass it downstream:
         if b.requires_grad:
             # d/db(a/b) = -(a/b^2), apply chain rule:
             db = - dz * a._data / (b._data ** 2)
+
+            # Rescale gradient to have the same shape as "b":
+            grad_dim = len(dz.shape)
+            in_dim = len(b.shape)
+            for _ in range(grad_dim - in_dim):
+                db = db.sum(axis=0)
+
+            for n, dim in enumerate(b.shape):
+                if dim == 1:
+                    db = db.sum(axis=n, keepdims=True)
 
             b.backward(db, z)
 
@@ -393,34 +424,6 @@ class MatMul:
         if b.requires_grad:
             db = a._data.swapaxes(-1,-2) @ dz
             b.backward(db, z)
-
-class Transpose:
-
-    def forward(self, a, *dims):
-        requires_grad = a.requires_grad
-       
-        # Get new Tensor's data:
-        data = a._data.swapaxes(*dims)
-       
-        # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self,op='.T')
-       
-        # Add new Tensors to "children" and old Tensors to "parents": 
-        self.parents = (a,)
-        a.children.append(z)
-        self.cache = (a, dims)
-
-        return z
-    
-    def backward(self, dz, z):
-        a, dims = self.cache
-        
-        # Find gradients relative to "a", and pass it downstream:
-        if a.requires_grad:
-            # Transpose upstream gradients:
-            da = dz.swapaxes(*dims)
- 
-            a.backward(da, z)
 
 
 class Exp:
@@ -513,7 +516,7 @@ class Mean:
         data = a._data.mean(axis=dim, keepdims=keepdims)
       
         # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='mean') 
        
         # Add new Tensors to "children" and old Tensors to "parents":
         self.parents = (a,)
@@ -580,7 +583,7 @@ class MaskedFill:
         data = torch.where(condition, a._data, value)
       
         # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='masked_fill') 
       
         # Add new Tensors to "children" and old Tensors to "parents":
         self.parents = (a,)
@@ -641,7 +644,7 @@ class Stack:
         data = torch.stack([tensor._data for tensor in tensors], axis=dim)
        
         # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='stack') 
        
         # Add new Tensors to "children" and old Tensors to "parents":
         self.parents = tensors
@@ -677,7 +680,7 @@ class Cat:
         data = torch.concatenate([tensor._data for tensor in tensors], axis=dim)
     
         # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='cat') 
     
         # Add new Tensors to "children" and old Tensors to "parents":
         self.parents = tensors
@@ -709,7 +712,7 @@ class Transpose:
         data = a._data.swapaxes(*dims)
        
         # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self)
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='.T')
        
         # Add new Tensors to "children" and old Tensors to "parents": 
         self.parents = (a,)
@@ -761,7 +764,7 @@ class Squeeze():
         data = a._data.squeeze(dim)
       
         # Create new Tensor:
-        z = Tensor(data, requires_grad=requires_grad, operation=self) 
+        z = Tensor(data, requires_grad=requires_grad, operation=self,op='squeeze') 
       
         # Add new Tensors to "children" and old Tensors to "parents":
         self.parents = (a,)
